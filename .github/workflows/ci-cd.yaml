@@ -48,4 +48,5 @@ jobs:
         env:
           KUBECONFIG: ${{ env.KUBECONFIG }}
         run: |
-          kubectl apply -f assessment.yaml
+          echo "Here we would do the deployment steps with kubectl or helm"
+          #kubectl apply -f assessment.yaml
