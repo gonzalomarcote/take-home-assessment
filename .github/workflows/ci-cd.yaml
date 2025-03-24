@@ -26,6 +26,10 @@ jobs:
     needs: build
 
     steps:
+      # Checkout repository under $GITHUB_WORKSPACE path
+      - name: Respository checkout
+        uses: actions/checkout@v4
+
       # Kubectl and Helm install
       - name: Kubectl and Helm install
         shell: bash
