@@ -75,8 +75,8 @@ jobs:
         shell: bash
         env:
           KUBECONFIG: ${{ secrets.KUBECONFIG }}
-          KUBE_VERSION: v1.28.4
-          HELM_VERSION: v3.12.2
+          KUBE_VERSION: v1.32.0
+          HELM_VERSION: v3.16.4
         run: |
           curl -Ls https://storage.googleapis.com/kubernetes-release/release/${KUBE_VERSION}/bin/linux/amd64/kubectl -o kubectl && chmod +x kubectl && mv kubectl /usr/local/bin/kubectl
           curl -Ls https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz -o helm-linux-amd64.tar.gz && tar -xzf helm-linux-amd64.tar.gz && mv linux-amd64/helm /usr/local/bin/helm
@@ -99,6 +99,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             SPECS=${{ github.event.inputs.specs }}
             echo "Deploying with Helm the following for size: $SPECS"
+            helm template assessment ./charts --values values/specs.yaml --set specs=$SPECS
             #helm upgrade --install assessment ./charts --values values/specs.yaml --set specs=$SPECS
           else
             echo "Deploying with kubectl"
