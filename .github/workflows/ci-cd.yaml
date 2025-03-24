@@ -2,6 +2,28 @@ name: Gonzo's Assessment CI/CD Pipeline
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      image:
+        type: choice
+        description: Python version to deploy
+        options:
+        - 3.8
+        - 3.9
+      packages:
+        type: choice
+        description: Python packages to deploy
+        options:
+        - boto3
+        - json
+      specs:
+        type: choice
+        description: Mem/CPU/GPU requests
+        options:
+        - small
+        - medium
+        - big
+
 jobs:
   build:
     name: Build
@@ -16,7 +38,12 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
     - name: Build and push Docker image
       run: |
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/assessment:latest .
+        if [ "${{ github.event_name }}" = "push" ]; then
+          PYTHON_VERSION="3.8"  # Default for push events from main
+        else
+          PYTHON_VERSION=${{ github.event.inputs.image }}
+        fi
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/assessment:latest --build-arg PYTHON_VERSION=${{ github.event.inputs.image }} .
         docker push ${{ secrets.DOCKER_USERNAME }}/assessment:latest
 
   deploy:

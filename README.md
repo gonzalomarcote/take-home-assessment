@@ -56,14 +56,19 @@ latest: digest: sha256:40669fc0181b556692aa066e8d413d66c3a90a754f532bf0543311265
 
 ### 3. Scan the recently created container and evaluate the CVEs that it might contain. Do it with AWS if possible. If not with docker hub
 
-#### 3.a Create a report of your findings and follow best practices to remediate the CVE
+#### 3.a. Create a report of your findings and follow best practices to remediate the CVE
 You can scan our recently created image with:
 `docker scan gonzalomarcote/assessment:latest`
+
+However `scan` option seems to be deprecated in docker so another popular option is `trivy`, one open-source vulnerability scanner:
+`trivy image gonzalomarcote/assessment:latest`
+
+Trivy provides detailed CVE reports and is widely used in CI/CD pipelines.
 
 Also if you are using AWS ECR, you can scan it with AWS CLI `aws ecr start-image-scan` or manually from the AWS ECR images portal.
 
 
-#### 3.b What would you do to avoid deploying malicious packages?
+#### 3.b. What would you do to avoid deploying malicious packages?
 You can for example use always official docker images, to be sure that to verify package sources or in critical cases to validate checksums.
 In my case, one example to validate `boto3` package checksum would be something similar to this [Dockerfile.checksum](./Dockerfile.checksum):
 ```
@@ -96,7 +101,7 @@ CMD ["sleep", "infinity"]
 Build it with `docker build -f Dockerfile.checksum -t gonzalomarcote/assessment:latest .`
 
 
-#### 4. Use the created image to create a kubernetes deployment with a command that will keep the pod running && 5. Expose the deployed resource
+### 4. Use the created image to create a kubernetes deployment with a command that will keep the pod running && 5. Expose the deployed resource
 You can create a K8s [assessment.yaml](./deploy/assessment.yaml) deployment with a service to expose our image with:
 ```
 apiVersion: apps/v1
@@ -137,12 +142,12 @@ spec:
 Apply it with `kubectl apply -f deploy/assessment.yaml`
 
 
-#### 6. Every step mentioned above have to be in a code repository with automated CI/CD
+### 6. Every step mentioned above have to be in a code repository with automated CI/CD
 I have created one basic GitHub actions deployment [ci-cd.yaml](./.github/workflows/ci-cd.yaml) yaml file.  
 Please Note that as I currently don't have one personal K8s cluster (I had it in the past), the deployment step is not functional (it is commented).  
 
 
-#### 7. How would you monitor the above deployment? Explain or implement the tools that you would use
+### 7. How would you monitor the above deployment? Explain or implement the tools that you would use
 I always try to use Prometheus for metrics collection and Grafana for metics visualization.
 For this, you need to have one Prometheus installed in your K8s cluster gathering metrics.  
 You can install it for example with:
@@ -181,3 +186,19 @@ livenessProbe:
 ```
 
 After configuring Grafana with Prometheus as `datasource` you can set up alerts for CPU/Memory usage thresholds, pod restarts, etc.
+
+
+## Project
+Using kubernetes you need to provide all your employees with a way of launching multiple development environments (different base images, requirements, credentials, others). The following are the basic needs for it.
+
+### 1. UI, CI/CD, workflow or other tool that will allow people to select options for:
+
+#### 1.a. Base image
+
+
+#### 1.b. Packages
+
+
+#### 1.c. Mem/CPU/GPU requests
+
+
