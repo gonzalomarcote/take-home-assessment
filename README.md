@@ -60,7 +60,7 @@ latest: digest: sha256:40669fc0181b556692aa066e8d413d66c3a90a754f532bf0543311265
 You can scan our recently created image with:
 `docker scan gonzalomarcote/assessment:latest`
 
-However `scan` option seems to be deprecated in docker so another popular option is `trivy`, one open-source vulnerability scanner:
+However, `scan` option seems to be deprecated in docker so another popular option is `trivy`, one open-source vulnerability scanner:
 `trivy image gonzalomarcote/assessment:latest`
 
 Trivy provides detailed CVE reports and is widely used in CI/CD pipelines.
@@ -351,3 +351,19 @@ In fact I did something similar to my current company but to scale up and down o
 Honestly I never did something like this. Since the data is already in our prometheus, we could try to build one Grafana Dashboard with a panel that shows the `requested` CPU and MEM for the last 30 days, and in the same dashboard another panel that shows the `used` CPU and MEM for the same period to compare them. But I honestly don't know how to add the Developer name or team that did it. Perhaps using Jenkins or GitHub Actions you can save that Devs or Team name and when a deploy is done and they did a change into the `requested` specs, save it to one postgres database along with the Prometheus time-series data for the metrics we’re collecting (`container_cpu_usage_seconds_total` and `container_memory_working_set_bytes`).
 
 
+### 3. The cluster needs to automatically handle up/down scaling and have multiple instance groups/taints/tags/others to be chosen from in order to segregate resources usage between teams/resources/projects/others
+To handle this I think the best design in one AWS EKS cluster would be to add the following elements:
+* Autoscaling - Add `Kubernetes Cluster Autoscaler` to scale up and down nodes on demand. When pods replicas are going up or down (or if you have HPA configured) this will make the AWS EKS cluster to cale the nodes based on resources utilization and pod scheduling needs.
+* Node Groups - It would be interesting to deploy AWS EKS cluster with different `Nodegroups`. This Node Gropus can be deployed across multiple AZs. In this way to have multiple Node groups will allow us to separate tehm for different purposes. For example for different teams or projects or workloads (CPU intense workloads, Memory intense workloads... and each one with different instance types). Another nice feature of Node Gropus is that you can update cluster configurations (minSize, maxSize, desiredCapacity, instanceType) without recreating the whole cluster.
+* Taints/Tags/Others - With `Taints` you can be sure that only specific pods goes into specific nodes. For example nodes with `team=frontend:NoSchedule` taint makes that only pods with a toleration `team=frontend` can be scheduled in that node. `Tags` can help to tag AWS infra resources (EC2, ELB, volumes, etc) and that will help to identify and track billing costs for one specific Team or Project. Other useful resources to design one cluster that could segregate resources could be affinity/anti-affinity rules taht like "preferences" for where pods should run.
+
+### 4. SFTP, SSH or similar access to the deployed environment is needed so DNS handling automation is required
+
+
+### 5. Some processes that are going to run inside these environments require between 100-250GB of data in memory
+
+#### 5.a. Could you talk about a time when you needed to bring the data to the code, and how you architected this system?
+
+#### 5.b. If you don’t have an example, could you talk through how you would go about architecting this?
+
+#### 5.c. How would you monitor memory usage/errors?
