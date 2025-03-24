@@ -1,0 +1,24 @@
+FROM python:3.8
+LABEL maintainer="Gonzalo Marcote <gonzalomarcote@gmail.com>"
+LABEL version="0.1"
+
+# Install curl
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install boto3 with checksum verification
+WORKDIR /app
+
+# Define the expected SHA256 checksum for a specific boto3 version
+# (This is an example checksum; replace with the actual one from a trusted source)
+ENV BOTO3_VERSION=1.37.18
+ENV BOTO3_CHECKSUM=1545c943f36db41853cdfdb6ff09c4eda9220dd95bd2fae76fc73091603525d1
+
+# Download boto3 wheel and verify its checksum
+RUN curl -LO "https://files.pythonhosted.org/packages/12/94/dccc4dd874cf455c8ea6dfb4c43a224632c03c3f503438aa99021759a097/boto3-${BOTO3_VERSION}-py3-none-any.whl" \
+    && echo "${BOTO3_CHECKSUM}  boto3-${BOTO3_VERSION}-py3-none-any.whl" | sha256sum -c - \
+    && pip install "boto3-${BOTO3_VERSION}-py3-none-any.whl" \
+    && rm "boto3-${BOTO3_VERSION}-py3-none-any.whl"
+
+CMD ["sleep", "infinity"]

@@ -1,0 +1,14 @@
+image:
+  repository: quay.io/prometheus/prometheus
+  tag: v2.48.0
+  pullPolicy: IfNotPresent
+server:
+  global:
+    scrape_interval: 15s
+    external_labels:
+      cluster: "gonzo-cluster"
+  # If you want to send metrics to a higher Prometheus server level 
+  #remoteWrite:
+  #  - url: "https://admin:passwd@your-high-level-prometheus.com/api/v1/write"
+  extraArgs:
+    'storage.tsdb.retention.size': 7GB
