@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: assessment-deployment
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: assessment
+  template:
+    metadata:
+      labels:
+        app: assessment
+    spec:
+      containers:
+      - name: assessment
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        command: ["sleep", "infinity"]
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: {{ .Values.resources.[.Values.specs].requests.memory }}
+            cpu: {{ .Values.resources.[.Values.specs].requests.cpu }}
+          limits:
+            memory: {{ .Values.resources.[.Values.specs].limits.memory }}
+            cpu: {{ .Values.resources.[.Values.specs].limits.cpu }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: assessment-service
+spec:
+  selector:
+    app: assessment
+  ports:
+  - protocol: TCP
+    port: {{ .Values.service.port }}
+    targetPort: {{ .Values.service.targetPort }}
+  type: {{ .Values.service.type }}

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: assessment
+description: assessment application
+version: 1.0.0

@@ -94,3 +94,13 @@ jobs:
         run: |
           echo "Here we would do the deployment steps with kubectl or helm"
           #kubectl apply -f assessment.yaml
+          # Default to small specs for push events
+          SPECS="small"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SPECS=${{ github.event.inputs.specs }}
+            echo "Deploying with Helm the following for size: $SPECS"
+            #helm upgrade --install assessment ./charts --values values/specs.yaml --set specs=$SPECS
+          else
+            echo "Deploying with kubectl"
+            #kubectl apply -f assessment.yaml
+          fi

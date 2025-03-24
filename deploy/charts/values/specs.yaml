@@ -1,0 +1,35 @@
+image:
+  repository: gonzalomarcote/assessment
+  tag: latest
+
+replicas: 1
+
+specs: small  # Default value
+
+resources:
+  small:
+    requests:
+      memory: "128Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "100m"
+  medium:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+  big:
+    requests:
+      memory: "512Mi"
+      cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 8080
