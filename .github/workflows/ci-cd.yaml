@@ -100,7 +100,7 @@ jobs:
             SPECS=${{ github.event.inputs.specs }}
             echo "Deploying with Helm the following for size: $SPECS"
             helm template assessment ./charts --values charts/values/specs.yaml --set specs=$SPECS
-            #helm upgrade --install assessment ./charts --values values/specs.yaml --set specs=$SPECS
+            #helm upgrade --install assessment ./charts --values charts/values/specs.yaml --set specs=$SPECS
           else
             echo "Deploying with kubectl"
             #kubectl apply -f assessment.yaml

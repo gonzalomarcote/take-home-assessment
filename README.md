@@ -192,13 +192,162 @@ After configuring Grafana with Prometheus as `datasource` you can set up alerts 
 Using kubernetes you need to provide all your employees with a way of launching multiple development environments (different base images, requirements, credentials, others). The following are the basic needs for it.
 
 ### 1. UI, CI/CD, workflow or other tool that will allow people to select options for:
+To make interactive for the developers to use different options there could be many different solutions like Jenkins, GitHub Actions, GitLab CI-CD or even with ArgoCD. Since we have been using GitHub Actions in this assesment I will try to continue using it and do one small example for the different options with one `workflow_dispatch` to let the devs in the company choose different options
 
 #### 1.a. Base image
+With the following block we can let the users select a different docker python image version:
+```
+  workflow_dispatch:
+    inputs:
+      image:
+        type: choice
+        description: Python version to deploy
+        options:
+        - 3.8
+        - 3.9
+```
 
+We pass `PYTHON_VERSION` var in the pipe to the build with:
+```
+    - name: Build and push Docker image
+      run: |
+        if [ "${{ github.event_name }}" = "push" ]; then
+          PYTHON_VERSION="3.8"  # Default for push events from main
+        else
+          PYTHON_VERSION=${{ github.event.inputs.image }}
+        fi
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/assessment:latest --build-arg PYTHON_VERSION="$PYTHON_VERSION" .
+        docker push ${{ secrets.DOCKER_USERNAME }}/assessment:latest
+```
+
+and later we overrride in the [Dockerfile](./Dockerfile) the version by adding at the beginning:
+```
+ARG PYTHON_VERSION=3.8
+FROM python:${PYTHON_VERSION}
+```
 
 #### 1.b. Packages
+For the pasckages basically the same. We override the [requirements.txt](./requirements.txt) file to install different Python packages depending on the selection in the workflow_dispatch:
+```
+  workflow_dispatch:
+    inputs:
+      packages:
+        type: choice
+        description: Python packages to deploy
+        options:
+        - boto3
+        - json
+```
 
+Later into the pipeline we do the trick of overriding the requirements.txt like this:
+```
+    - name: Set up requirements.txt based on package selection
+      run: |
+        # Default to boto3 for push events or if boto3 is selected
+        PACKAGE="boto3==1.37.18"
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event.inputs.packages }}" = "json" ]; then
+            PACKAGE="python-json-logger==2.0.7"  # Override for json selection
+          fi
+        fi
+        echo "$PACKAGE" > requirements.txt
+        echo "Generated requirements.txt with: $PACKAGE"
+```
 
 #### 1.c. Mem/CPU/GPU requests
+This is more complicated and involve move everything to Helm templates, because it is easier for managing dynamic Kubernetes deployments.  
+For example if we add the following workflow_dispatch to the pipeline, based on different specs for the services:  
+```
+  workflow_dispatch:
+    inputs:
+      specs:
+        type: choice
+        description: Mem/CPU/GPU requests
+        options:
+        - small
+        - medium
+        - big
+```
+
+Later we can create one [specs.yaml](./deploy/charts/values/specs.yaml) file to add different resources:
+```
+image:
+  repository: gonzalomarcote/assessment
+  tag: latest
+
+replicas: 1
+
+specs: small  # Default value
+
+resources:
+  small:
+    requests:
+      memory: "128Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "100m"
+  medium:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+  big:
+    requests:
+      memory: "512Mi"
+      cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 8080
+```
+
+This will let us make different scenarios to deploy depending of the resources specs needed. We need to modify our previous deployment to use a Helm template [assessment.yaml](./deploy/charts/templates/assessment.yaml) and deploy it with `Helm` instead of `kubectl`:
+```
+helm upgrade --install assessment ./charts --values charts/values/specs.yaml --set specs=$SPECS
+```
+
+
+### 2. Monitor each environment and make sure that
+
+#### 2.a. Resources request is accurate (requested vs used)
+To monitor that requests are accurate (requested vs used) I think the best solution is to monitor it with Grafana. If you are already sending Prometheus metrics from the AWS EKS custer to your Grafana you can monitor your pods CPU and MEM usage with the following metrics:
+```
+1000 * max(rate(container_cpu_usage_seconds_total{pod=~"assessment-deployment.*",cluster=~"$environment",namespace="default"}[5m])) by (pod)
+((sum by (pod) (container_memory_working_set_bytes{pod=~"assessment-deployment..*",cluster=~"$environment",namespace="default"} / 1024) / 1024) / 2)
+```
+
+This is what I use in my current company to monitor (dev and prod environments) our different pods.  
+Later you can compare it with the CPU and MEM requests:  
+```
+kube_pod_container_resource_requests{namespace="default", pod=~"assessment-deployment.*",cluster=~"$environment",resource="cpu"}
+kube_pod_container_resource_requests{namespace="default", pod=~"assessment-deployment.*",cluster=~"$environment",resource="memory"}
+```
+And create some Grafana alerts for discrepances and to check if there is a lot of difference.
+
+#### 2.b. Notify when resources are idle or underutilized
+As I mentioned above if memory and cpu used is far bellow the requested one that we have specified in the deployment resources we can create some alerts in grafana for example for:
+* CPU usage < 10% of requested CPU for 24 hours
+* Memory usage < 10% of requested memory for 24 hours
+
+And send alerts (by Slack or email) to the DevOps team to review and adjust it.
+
+#### 2.c. Downscale when needed (you can assume any rule defined by you to allow this to happen)
+This I think is pretty complex but affordable. Since I don't have a lot of time for this assessment (I have a full-time job and a kid) I will do an overall explanation with what I would do:
+* Create one Cronjob that runs periodically to check if the resources are underutilized or not (for example every hour).
+* This Cronjob needs to be deployed with one `ServiceAccount, Role and RoleBinding` to be able to execute `kubectl` commands like `get` and `scale` (and probably someone more) to scale up or down deployment `replicas` according to.
+* The Cronjob needs to run some previously cooked pod image that is able to have access to our Prometheus and do queries for the usage VS used resources and compare them to decide if it is underutilized or not (I probably would do this with one python script).
+
+This is what I can imagine now that could be a good solution that could work. But as I commented this seems to be a quite complex task.  
+In fact I did something similar to my current company but to scale up and down on specific hours, so I would need to add to the equation one script that check and compare the usage VS used resources.  
+
+#### 2.d. Save data to track people requests/usage and evaluate performance
+Honestly I never did something like this. Since the data is already in our prometheus, we could try to build one Grafana Dashboard with a panel that shows the `requested` CPU and MEM for the last 30 days, and in the same dashboard another panel that shows the `used` CPU and MEM for the same period to compare them. But I honestly don't know how to add the Developer name or team that did it. Perhaps using Jenkins or GitHub Actions you can save that Devs or Team name and when a deploy is done and they did a change into the `requested` specs, save it to one postgres database along with the Prometheus time-series data for the metrics we’re collecting (`container_cpu_usage_seconds_total` and `container_memory_working_set_bytes`).
 
 
