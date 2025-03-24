@@ -4,7 +4,8 @@ This repository contains a simple Docker-based Python application with Kubernete
 
 
 ## General questions
-1. Create an image with python2, python3, R, install a set of requirements and upload it to docker hub
+
+### 1. Create an image with python2, python3, R, install a set of requirements and upload it to docker hub
 ```
 FROM python:3.8
 LABEL maintainer="Gonzalo Marcote <gonzalomarcote@gmail.com>"
@@ -18,11 +19,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 CMD ["sleep", "infinity"]
 ```
 
-2. For the previously created image Share build times
+You can check [Dockerfile](./Dockerfile) here
+
+
+### 2. For the previously created image Share build times
 Build it with:
 `time docker build -t gonzalomarcote/assessment:latest .`
 
-Firts time (pulling python:3.8 image) it takes 1 min and 16 seconds:
+First time build (pulling python:3.8 image) takes 1 min and 16 seconds:
 ```
 real	1m16,432s
 user	0m0,187s
@@ -31,7 +35,7 @@ sys	0m0,139s
 
 You could improve build times by:
 * Use multi-stage image to separate build and runtime layers
-* Use specific version of python:3.8-slim instead of latest or use smaller base images like python:3.8-alpine
+* Use specific version of `python:3.8-slim` instead of latest or use smaller base images like `python:3.8-alpine`
 * Use `.dockerignore` to exclude unnecessary files
 
 Push it (after login to Docker Hub with `docker login`) with:
@@ -49,16 +53,19 @@ bfb701a43cd5: Pushed
 latest: digest: sha256:40669fc0181b556692aa066e8d413d66c3a90a754f532bf054331126532269b3 size: 1784
 ```
 
-3. Scan the recently created container and evaluate the CVEs that it might contain. Do it with AWS if possible. If not with docker hub
-* Create a report of your findings and follow best practices to remediate the CVE
+
+### 3. Scan the recently created container and evaluate the CVEs that it might contain. Do it with AWS if possible. If not with docker hub
+
+#### 3.a Create a report of your findings and follow best practices to remediate the CVE
 You can scan our recently created image with:
 `docker scan gonzalomarcote/assessment:latest`
 
-Also if you are using AWS ECR, you can scan it with AWS CLI `aws ecr start-image-scan` or manually from th3 AWS ECR images portal.
+Also if you are using AWS ECR, you can scan it with AWS CLI `aws ecr start-image-scan` or manually from the AWS ECR images portal.
 
-* What would you do to avoid deploying malicious packages?
-You van for example use always official docker images, be sure that to verufy package sources or in critical cases validate checksums.
-In my case, one example to validate `boto3` could be something similar to this:
+
+#### 3.b What would you do to avoid deploying malicious packages?
+You can for example use always official docker images, to be sure that to verify package sources or in critical cases to validate checksums.
+In my case, one example to validate `boto3` package checksum would be something similar to this [Dockerfile.checksum](./Dockerfile.checksum):
 ```
 FROM python:3.8
 LABEL maintainer="Gonzalo Marcote <gonzalomarcote@gmail.com>"
@@ -88,8 +95,9 @@ CMD ["sleep", "infinity"]
 
 Build it with `docker build -f Dockerfile.checksum -t gonzalomarcote/assessment:latest .`
 
-4. Use the created image to create a kubernetes deployment with a command that will keep the pod running && 5. Expose the deployed resource
-You can create a K8s deploymet with a service to expose our image with:
+
+#### 4. Use the created image to create a kubernetes deployment with a command that will keep the pod running && 5. Expose the deployed resource
+You can create a K8s [assessment.yaml](./deploy/assessment.yaml) deployment with a service to expose our image with:
 ```
 apiVersion: apps/v1
 kind: Deployment
@@ -126,16 +134,17 @@ spec:
   type: LoadBalancer
 ```
 
-Apply it with `kubectl apply -f deployment.yaml`
+Apply it with `kubectl apply -f deploy/assessment.yaml`
 
-6. Every step mentioned above have to be in a code repository with automated CI/CD
-I have created one basic GitHub actions deployment yaml file.  
-Please Note that as I currently don't have one personal Ku8s cluster (I had it in the past), the deployment stepd is not functional.  
-See the [assessment.yaml](./deploy/assessment.yaml) for details.
 
-7. How would you monitor the above deployment? Explain or implement the tools that you would use
+#### 6. Every step mentioned above have to be in a code repository with automated CI/CD
+I have created one basic GitHub actions deployment [ci-cd.yaml](./.github/workflows/ci-cd.yaml) yaml file.  
+Please Note that as I currently don't have one personal K8s cluster (I had it in the past), the deployment step is not functional (it is commented).  
+
+
+#### 7. How would you monitor the above deployment? Explain or implement the tools that you would use
 I always try to use Prometheus for metrics collection and Grafana for metics visualization.
-For this you need to have one prmetheus installed in your K8s cluster gathering metrics.  
+For this, you need to have one Prometheus installed in your K8s cluster gathering metrics.  
 You can install it for example with:
 ```
 kubectl create namespace monitoring
@@ -161,7 +170,7 @@ spec:
   type: LoadBalancer
 ```
 
-And implement a healthcheck for deployment. For example:
+And implement a healthcheck for the deployment pods. For example:
 ```
 livenessProbe:
   httpGet:
@@ -171,4 +180,4 @@ livenessProbe:
   periodSeconds: 10
 ```
 
-After coniguring Grafana with Prometheus `datasource` you can Set up alerts for CPU/Memory usage thresholds, pod restarts, etc
+After configuring Grafana with Prometheus as `datasource` you can set up alerts for CPU/Memory usage thresholds, pod restarts, etc.
