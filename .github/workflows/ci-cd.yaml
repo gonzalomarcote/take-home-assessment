@@ -43,7 +43,7 @@ jobs:
         else
           PYTHON_VERSION=${{ github.event.inputs.image }}
         fi
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/assessment:latest --build-arg PYTHON_VERSION=${{ github.event.inputs.image }} .
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/assessment:latest --build-arg PYTHON_VERSION="$PYTHON_VERSION" .
         docker push ${{ secrets.DOCKER_USERNAME }}/assessment:latest
 
   deploy:
