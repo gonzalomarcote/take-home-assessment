@@ -66,7 +66,7 @@ However, `scan` option seems to be deprecated in docker so another popular optio
 You can save them as JSON file:  
 `trivy image --format json -o trivy-report.json gonzalomarcote/assessment:latest`
 
-Or a more pretty one as HTML report that you can find [here](./trivy-reports/trivy-report.html):
+Or a more pretty one as HTML report that you can find [here](./trivy-reports/trivy-report.html):  
 `trivy image --format template --template "@html.tpl" -o trivy-report.html gonzalomarcote/assessment:latest`
 
 Trivy provides detailed CVE reports and is widely used in CI/CD pipelines.  
@@ -75,9 +75,9 @@ Also if you are using AWS ECR, you can scan it with AWS CLI `aws ecr start-image
 
 
 #### 3.b. What would you do to avoid deploying malicious packages?
-* You can for example use always official docker images
+* You can use always official docker images
 * Try to use latest images and updated packages
-* To be sure that to verify package sources from official ones
+* To be sure that to verify that package sources are the official ones
 * Or in critical cases you can validate packages checksums
 
 One example to validate `boto3` package checksum would be something similar to this [Dockerfile.checksum](./Dockerfile.checksum):
@@ -111,7 +111,8 @@ CMD ["sleep", "infinity"]
 Build it with `docker build -f Dockerfile.checksum -t gonzalomarcote/assessment:latest .`
 
 
-### 4. Use the created image to create a kubernetes deployment with a command that will keep the pod running && 5. Expose the deployed resource
+### 4. Use the created image to create a kubernetes deployment with a command that will keep the pod running && 
+### 5. Expose the deployed resource
 You can create a K8s [assessment.yaml](./deploy/assessment.yaml) deployment with a service to expose our image with:
 ```
 apiVersion: apps/v1
