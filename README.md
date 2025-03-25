@@ -63,14 +63,24 @@ You can scan our recently created image with:
 However, `scan` option seems to be deprecated in docker so another popular option is `trivy`, one open-source vulnerability scanner:
 `trivy image gonzalomarcote/assessment:latest`
 
-Trivy provides detailed CVE reports and is widely used in CI/CD pipelines.
+You can save them as JSON file:  
+`trivy image --format json -o trivy-report.json gonzalomarcote/assessment:latest`
+
+Or a more pretty one as HTML report that you can find [here](./trivy-reports/trivy-report.html):
+`trivy image --format template --template "@html.tpl" -o trivy-report.html gonzalomarcote/assessment:latest`
+
+Trivy provides detailed CVE reports and is widely used in CI/CD pipelines.  
 
 Also if you are using AWS ECR, you can scan it with AWS CLI `aws ecr start-image-scan` or manually from the AWS ECR images portal.
 
 
 #### 3.b. What would you do to avoid deploying malicious packages?
-You can for example use always official docker images, to be sure that to verify package sources or in critical cases to validate checksums.
-In my case, one example to validate `boto3` package checksum would be something similar to this [Dockerfile.checksum](./Dockerfile.checksum):
+* You can for example use always official docker images
+* Try to use latest images and updated packages
+* To be sure that to verify package sources from official ones
+* Or in critical cases you can validate packages checksums
+
+One example to validate `boto3` package checksum would be something similar to this [Dockerfile.checksum](./Dockerfile.checksum):
 ```
 FROM python:3.8
 LABEL maintainer="Gonzalo Marcote <gonzalomarcote@gmail.com>"
@@ -144,7 +154,7 @@ Apply it with `kubectl apply -f deploy/assessment.yaml`
 
 ### 6. Every step mentioned above have to be in a code repository with automated CI/CD
 I have created one basic GitHub actions deployment [ci-cd.yaml](./.github/workflows/ci-cd.yaml) yaml file.  
-Please Note that as I currently don't have one personal K8s cluster (I had it in the past), the deployment step is not functional (it is commented).  
+Please _Note_ that as I currently don't have one personal K8s cluster (I had it in the past), the deployment step is not functional (it is commented out).  
 
 
 ### 7. How would you monitor the above deployment? Explain or implement the tools that you would use
