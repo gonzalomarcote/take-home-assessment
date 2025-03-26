@@ -159,7 +159,7 @@ Please _Note_ that as I currently don't have one personal K8s cluster (I had it 
 
 
 ### 7. How would you monitor the above deployment? Explain or implement the tools that you would use
-I always try to use Prometheus for metrics collection and Grafana for metics visualization.
+I always try to use Prometheus for metrics collection and Grafana for metrics visualization.
 For this, you need to have one Prometheus installed in your K8s cluster gathering metrics.  
 You can install it for example with:
 ```
@@ -203,7 +203,7 @@ After configuring Grafana with Prometheus as `datasource` you can set up alerts 
 Using kubernetes you need to provide all your employees with a way of launching multiple development environments (different base images, requirements, credentials, others). The following are the basic needs for it.
 
 ### 1. UI, CI/CD, workflow or other tool that will allow people to select options for:
-To make interactive for the developers to use different options there could be many different solutions like Jenkins, GitHub Actions, GitLab CI-CD or even with ArgoCD. Since we have been using GitHub Actions in this assesment I will try to continue using it and do one small example for the different options with one `workflow_dispatch` to let the devs in the company choose different options
+To make interactive for the developers to use different options there could be many different solutions like Jenkins, GitHub Actions, GitLab CI-CD or even with ArgoCD. Since we have been using GitHub Actions in this assessment I will try to continue using it and do one small example for the different options with one `workflow_dispatch` to let the devs in the company choose different options
 
 #### 1.a. Base image
 With the following block we can let the users select a different docker python image version:
@@ -238,7 +238,7 @@ FROM python:${PYTHON_VERSION}
 ```
 
 #### 1.b. Packages
-For the pasckages basically the same. We override the [requirements.txt](./requirements.txt) file to install different Python packages depending on the selection in the workflow_dispatch:
+For the packages basically the same. We override the [requirements.txt](./requirements.txt) file to install different Python packages depending on the selection in the workflow_dispatch:
 ```
   workflow_dispatch:
     inputs:
@@ -343,7 +343,7 @@ kube_pod_container_resource_requests{namespace="default", pod=~"assessment-deplo
 And create some Grafana alerts for discrepances and to check if there is a lot of difference.
 
 #### 2.b. Notify when resources are idle or underutilized
-As I mentioned above if memory and cpu used is far bellow the requested one that we have specified in the deployment resources we can create some alerts in grafana for example for:
+As I mentioned above if memory and cpu used is far below the requested one that we have specified in the deployment resources we can create some alerts in grafana for example for:
 * CPU usage < 10% of requested CPU for 24 hours
 * Memory usage < 10% of requested memory for 24 hours
 
@@ -364,13 +364,13 @@ Honestly I never did something like this. Since the data is already in our prome
 
 ### 3. The cluster needs to automatically handle up/down scaling and have multiple instance groups/taints/tags/others to be chosen from in order to segregate resources usage between teams/resources/projects/others
 To handle this I think the best design in one AWS EKS cluster would be to add the following elements:
-* Autoscaling - Add `Kubernetes Cluster Autoscaler` to scale up and down nodes on demand. When pods replicas are going up or down (or if you have HPA configured) this will make the AWS EKS cluster to cale the nodes based on resources utilization and pod scheduling needs.
-* Node Groups - It would be interesting to deploy AWS EKS cluster with different `Nodegroups`. This Node Gropus can be deployed across multiple AZs. In this way to have multiple Node groups will allow us to separate tehm for different purposes. For example for different teams or projects or workloads (CPU intense workloads, Memory intense workloads... and each one with different instance types). Another nice feature of Node Gropus is that you can update cluster configurations (minSize, maxSize, desiredCapacity, instanceType) without recreating the whole cluster.
+* Autoscaling - Add `Kubernetes Cluster Autoscaler` to scale up and down nodes on demand. When pods replicas are going up or down (or if you have HPA configured) this will make the AWS EKS cluster to scale the nodes based on resources utilization and pod scheduling needs.
+* Node Groups - It would be interesting to deploy AWS EKS cluster with different `Nodegroups`. This Node Gropus can be deployed across multiple AZs. In this way to have multiple Node groups will allow us to separate them for different purposes. For example for different teams or projects or workloads (CPU intense workloads, Memory intense workloads... and each one with different instance types). Another nice feature of Node Groups is that you can update cluster configurations (minSize, maxSize, desiredCapacity, instanceType) without recreating the whole cluster.
 * Taints/Tags/Others - With `Taints` you can be sure that only specific pods goes into specific nodes. For example nodes with `team=frontend:NoSchedule` taint makes that only pods with a toleration `team=frontend` can be scheduled in that node. `Tags` can help to tag AWS infra resources (EC2, ELB, volumes, etc) and that will help to identify and track billing costs for one specific Team or Project. Other useful resources to design one cluster that could segregate resources could be `affinity/anti-affinity` rules taht like "preferences" for where pods should run.
 
 ### 4. SFTP, SSH or similar access to the deployed environment is needed so DNS handling automation is required
 To add `SFTP` or `SSH` to one deployed environment in Kubernetes is not a common task. I think we have two options. To rebuild our image with the `openssh-server` package or to use one `sidecar` image to our deployment pods with `openssh` and add the ssh public keys in one external volume (we will copy them there to not be stored in our image).  
-I will desable SSH password login and allow only `pub/priv` authentication.  
+I will disable SSH password login and allow only `pub/priv` authentication.  
 A minimal base image with alpine would be:  
 ```
 FROM alpine:latest
