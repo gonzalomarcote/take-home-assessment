@@ -369,12 +369,117 @@ To handle this I think the best design in one AWS EKS cluster would be to add th
 * Taints/Tags/Others - With `Taints` you can be sure that only specific pods goes into specific nodes. For example nodes with `team=frontend:NoSchedule` taint makes that only pods with a toleration `team=frontend` can be scheduled in that node. `Tags` can help to tag AWS infra resources (EC2, ELB, volumes, etc) and that will help to identify and track billing costs for one specific Team or Project. Other useful resources to design one cluster that could segregate resources could be `affinity/anti-affinity` rules taht like "preferences" for where pods should run.
 
 ### 4. SFTP, SSH or similar access to the deployed environment is needed so DNS handling automation is required
+To add `SFTP` or `SSH` to one deployed environment in Kubernetes is not a common task. I think we have two options. To rebuild our image with the `openssh-server` package or to use one `sidecar` image to our deployment pods with `openssh` and add the ssh public keys in one external volume (we will copy them there to not be stored in our image).  
+I will desable SSH password login and allow only `pub/priv` authentication.  
+A minimal base image with alpine would be:  
+```
+FROM alpine:latest
+RUN apk update && apk add --no-cache openssh
+RUN mkdir /var/run/sshd
+# Generate SSH host keys
+RUN ssh-keygen -A
+# Configure SSH to disable password login
+RUN echo "PasswordAuthentication no" >> /etc/ssh/sshd_config && \
+    echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
+    echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config
+# Create .ssh directory for root
+RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh
+EXPOSE 22
+CMD ["/usr/sbin/sshd", "-D"]
+```
 
+Now, we will update our deployment yaml file to add the sidecar container with something like:  
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: assessment-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: assessment
+  template:
+    metadata:
+      labels:
+        app: assessment
+    spec:
+      containers:
+      - name: assessment
+        image: gonzalomarcote/assessment:latest
+        command: ["sleep", "infinity"]
+        ports:
+        - containerPort: 8080
+      - name: ssh-sidecar
+        image: gonzalomarcote/my-ssh-image:latest
+        ports:
+        - containerPort: 22
+        volumeMounts:
+        - name: ssh-keys
+          mountPath: /root/.ssh
+      volumes:
+      - name: ssh-keys
+        emptyDir: {}
+```
+
+To configure SSH access to our deployment:  
+* Generate one SSH key pair in your local machine `ssh-keygen -t rsa -b 4096`
+* Copy the public key into the pod sidecar container with `kubectl cp` for example or a `ConfigMap` (more complex)
+* Update sidecar’s `/root/.ssh/authorized_keys` file with the public key
+* Consider changing the SSH port to a different one (22022) as it is a well-known port
+
+To expose the port, since we already have one service with `type: LoadBalancer` that would create one AWS external Load Balancer and we will be able to connect to it:  
+```
+ssh -i ~/.ssh/your-priv-ssh-key root@your.elb.amazonaws.com
+```
+
+In AWS `Route53` we can create one `CNAME` pointing to `your.elb.amazonaws.com`.  
+You mention _DNS handling automation is required_. If this means to automatically create one DNS in `Route53` when creating the Load balancer honestly I never had the situation to do it, but after Googling I see there are specific `annotations` for the Load Balancers to create automatically one record in Route53 and one service called `external-dns` that can be installed with Helm.  
+So you define the AWS Hosted Zone in a `values.yaml` where you want to automatically create the record:  
+```
+provider: aws
+aws:
+  zoneType: public
+domainFilters:
+  - gonzalomarcote.com
+```
+
+You install it with `helm install external-dns external-dns/external-dns -f values.yaml` and you can annotate your sevice with something like:  
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: assessment-service
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: ssh.gonzalomarcote.com
+    external-dns.alpha.kubernetes.io/alias: "true"
+spec:
+  selector:
+    app: assessment
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer
+```
 
 ### 5. Some processes that are going to run inside these environments require between 100-250GB of data in memory
+Honestly, this is a bit beyond my experience, as I've never had to work with such a large amount of data in memory.  
+So, unless we have huge machines like an `r5.12xlarge` with 384GB of RAM 😱 where our pods can run, I think the best solution would be to use Redis or Memcached _outside_ the Kubernetes cluster and manage it with an AWS service like Amazon ElastiCache.
 
 #### 5.a. Could you talk about a time when you needed to bring the data to the code, and how you architected this system?
+Sorry but I don't have experience with this, but I would investigate this option further if necessary as I find it very interesting and challenging.  
 
 #### 5.b. If you don’t have an example, could you talk through how you would go about architecting this?
+Since I don't have much experience in this, I'm going to digress a bit about the architecture I would research.  
+First, I would simplify the EKS deployment by offloading the in-memory data management to a managed AWS service and not be forced to use huge and expensive memory instances and manage our own Redis pods.  
+I would use External In-Memory Store like Amazon ElastiCache for Redis, running outside the EKS cluster and in the same VPC.  
+About the data loading, as usually data comes from `S3` I would investigate to create one Lambda with Python (triggered by an S3 event for example) to get the data from S3 and populate ElastiCache using a Redis client (with `boto3` for S3 and `redis-py` for Redis).  
+Each pod would be connected to ElastiCache over the VPC network in one private subnet (using one Redis internal endpoint like `my-redis.cache.amazonaws.com:6379` to not be exposed to internet).  
+I'm sorry I can't be more explicit, but this is beyond my current knowledge and I've never been in a similar situation like this before.  
 
 #### 5.c. How would you monitor memory usage/errors?
+In my case, using ElastiCache for Redis I would monitor it with CloudWatch, or if using grafana to create a `CloudWatch datasource` to create some panels monitoring `DatabaseMemoryUsagePercentage`, `EngineCPUUtilization`, `CacheMisses` and create some alarms in Grafana if:
+* DatabaseMemoryUsagePercentage > 90% for 5 minutes
+* EngineCPUUtilization > 90% for 1 minute
+* CacheMisses > 10,000 in 1 minute
